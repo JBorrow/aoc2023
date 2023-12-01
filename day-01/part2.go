@@ -4,7 +4,6 @@ import "fmt"
 import "os"
 import "log"
 import "strconv"
-import "strings"
 import "regexp"
 import "bufio"
 
@@ -30,9 +29,17 @@ var string_map = map[string]int{
     "nine": 9,
 }
 
-var just_numbers_regex = regexp.MustCompile(
-    `[0-9]|one|two|three|four|five|six|seven|eight|nine`,
-)
+func set_regex() *regexp.Regexp {
+    regex := ""
+
+    for k := range string_map {
+        regex += string(k + "|")
+    }
+
+    return regexp.MustCompile(regex[:len(regex)-1])
+}
+
+var just_numbers_regex = set_regex()
 
 func single_line_multimatch(str string) int {
     first_match := -1
