@@ -3,7 +3,6 @@ package main
 import "fmt"
 import "os"
 import "log"
-import "strconv"
 import "regexp"
 import "bufio"
 
@@ -57,14 +56,7 @@ func single_line_multimatch(str string) int {
     }
 
     // Combine back together
-
-    first_string := strconv.Itoa(first_match)
-    final_string := strconv.Itoa(final_match)
-    combined := first_string + final_string
-
-    final, _ := strconv.Atoi(combined)
-
-    return final
+    return 10 * first_match + final_match
 }
 
 func main() {
