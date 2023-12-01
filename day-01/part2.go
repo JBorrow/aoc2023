@@ -42,24 +42,18 @@ func set_regex() *regexp.Regexp {
 var just_numbers_regex = set_regex()
 
 func single_line_multimatch(str string) int {
-    first_match := -1
+    // First match is super easy.
+    first_match := string_map[just_numbers_regex.FindString(str)]
     final_match := -1
 
-    for i := 0; i < len(str); i++ {
+    for i := len(str); i >= 0; i-- {
         match := just_numbers_regex.FindString(str[i:])
 
-        if (match == "") {
-            // There can be no more matches!
+        if (match != "") {
+            // First match going backwards!
+            final_match = string_map[match];
             break;
         }
-        
-        mapped_integer := string_map[match]
-
-        if (first_match < 0) {
-            first_match = mapped_integer;
-        }
-
-        final_match = mapped_integer
     }
 
     // Combine back together
@@ -74,6 +68,8 @@ func single_line_multimatch(str string) int {
 }
 
 func main() {
+    DEBUG := false
+
     scanner := bufio.NewScanner(os.Stdin)
 
     total := 0;
@@ -82,7 +78,10 @@ func main() {
         text := scanner.Text()
 
         single := single_line_multimatch(text)
-        fmt.Println("Output: ", single, " Base: ", text)
+
+        if (DEBUG) {
+            fmt.Println("Output: ", single, " Base: ", text)
+        }
 
         total += single
     }
