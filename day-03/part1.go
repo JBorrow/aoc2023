@@ -6,14 +6,15 @@ import "log"
 import "regexp"
 import "bufio"
 import "strconv"
+
 //import "strings"
 
 var number_regex = regexp.MustCompile(`\d*`)
 var token_regex = regexp.MustCompile(`[^\.|\d|\n]`)
 
-func parse_line(str string) ([]int, []bool) {
+func parse_line(str string, mapping map[int]int, current_uid int) ([]int, []bool, map[int]int, int) {
 	number_of_characters := len(str)
-	
+
 	ids := make([]int, number_of_characters)
 	tokens := make([]bool, number_of_characters)
 
@@ -31,18 +32,21 @@ func parse_line(str string) ([]int, []bool) {
 	for i := 0; i < len(values); i++ {
 		value := values[i]
 		index := indicies[i][0]
+		// Use a UID not a part number because they may appear twice!
+		current_uid++
+		converted_value, _ := strconv.Atoi(value)
+		mapping[current_uid] = converted_value
 
 		// Loop over n, where n is string length
 		for x := 0; x < len(value); x++ {
-			ids[index + x], _ = strconv.Atoi(value)
+			ids[index+x] = current_uid
 		}
 	}
 
-	return ids, tokens
+	return ids, tokens, mapping, current_uid
 }
 
-func extract_part_numbers(tokens [][]bool, values [][]int) []int {
-	// Go does not have a set so we use this instead.
+func extract_part_numbers(tokens [][]bool, values [][]int, mapping map[int]int) []int {
 	m := make(map[int]bool)
 
 	number_of_lines := len(tokens)
@@ -51,20 +55,20 @@ func extract_part_numbers(tokens [][]bool, values [][]int) []int {
 	for line_index, token_line := range tokens {
 		// Valid part numbers are 'around' the token.
 		for column_index, token_value := range token_line {
-			if (!token_value) {
+			if !token_value {
 				continue
 			}
 
-			start_line := max(min(number_of_lines - 1, line_index - 1), 0)
-			end_line := max(min(number_of_lines - 1, line_index + 1), 0)
+			start_line := max(min(number_of_lines-1, line_index-1), 0)
+			end_line := max(min(number_of_lines-1, line_index+1), 0)
 
-			start_column := max(min(number_of_columns - 1, column_index - 1), 0)
-			end_column := max(min(number_of_columns - 1, column_index + 1), 0)
+			start_column := max(min(number_of_columns-1, column_index-1), 0)
+			end_column := max(min(number_of_columns-1, column_index+1), 0)
 
 			for line := start_line; line <= end_line; line++ {
 				for column := start_column; column <= end_column; column++ {
 					this_value := values[line][column]
-					if (this_value > 0) {
+					if this_value > 0 {
 						m[this_value] = true
 					}
 				}
@@ -78,15 +82,13 @@ func extract_part_numbers(tokens [][]bool, values [][]int) []int {
 	part_numbers := make([]int, 0)
 
 	for i := 0; i <= MAX_PART_NUMBER; i++ {
-		if (m[i]) {
-			part_numbers = append(part_numbers, i)
+		if m[i] {
+			part_numbers = append(part_numbers, mapping[i])
 		}
 	}
 
 	return part_numbers
 }
-
-
 
 func main() {
 	DEBUG := true
@@ -109,12 +111,11 @@ func main() {
 
 	tokens := make([][]bool, number_of_lines)
 	values := make([][]int, number_of_lines)
+	mapping := make(map[int]int)
+	current_uid := 1
 
 	for i, l := range raw_input {
-		v, t := parse_line(l)
-
-		tokens[i] = t
-		values[i] = v
+		values[i], tokens[i], mapping, current_uid = parse_line(l, mapping, current_uid)
 	}
 
 	if DEBUG {
@@ -134,7 +135,7 @@ func main() {
 		}
 	}
 
-	part_numbers := extract_part_numbers(tokens, values)
+	part_numbers := extract_part_numbers(tokens, values, mapping)
 
 	if DEBUG {
 		fmt.Println("Part numbers: ")
