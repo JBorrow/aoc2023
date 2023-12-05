@@ -19,10 +19,28 @@ var mapping_regex = regexp.MustCompile(`([a-z]+)-to-([a-z]+) map`)
 
 // var MAXIMUM_NUMBER_OF_SEEDS = 100
 
+type MappingRange struct {
+	start_from int
+	stop_from  int
+	start_to   int
+	stop_to    int
+	width      int
+}
+
+func (mapping *SeedMapping) FindMapping(number int) int {
+	for _, v := range mapping.ranges {
+		if number >= v.start_from && number <= v.stop_from {
+			return v.start_to + (number - v.start_from)
+		}
+	}
+
+	return number
+}
+
 type SeedMapping struct {
-	from    string
-	to      string
-	mapping map[int]int
+	from   string
+	to     string
+	ranges []MappingRange
 }
 
 func parse_name_string(str string) (string, string) {
@@ -33,13 +51,8 @@ func parse_name_string(str string) (string, string) {
 
 func parse_mapping(strs []string) SeedMapping {
 	result := SeedMapping{
-		mapping: make(map[int]int),
+		ranges: make([]MappingRange, 0),
 	}
-
-	// // Default is direct mapping to self
-	// for i := 0; i < MAXIMUM_NUMBER_OF_SEEDS; i++ {
-	// 	result.mapping[i] = i
-	// }
 
 	for _, v := range strs {
 		if strings.Contains(v, ":") {
@@ -51,9 +64,15 @@ func parse_mapping(strs []string) SeedMapping {
 			from_start, _ := strconv.Atoi(match_numbers[1])
 			length, _ := strconv.Atoi(match_numbers[2])
 
-			for i := 0; i < length; i++ {
-				result.mapping[from_start+i] = to_start + i
+			new_mapping_range := MappingRange{
+				start_from: from_start,
+				stop_from:  from_start + length - 1,
+				start_to:   to_start,
+				stop_to:    to_start + length - 1,
+				width:      length,
 			}
+
+			result.ranges = append(result.ranges, new_mapping_range)
 		}
 	}
 
@@ -69,11 +88,7 @@ func make_hops(have string, want string, mappings []SeedMapping, number int) int
 	// Find the correct mapping...
 	for _, v := range mappings {
 		if v.from == have {
-			new_number, ok := v.mapping[number]
-
-			if !ok {
-				new_number = number
-			}
+			new_number := v.FindMapping(number)
 
 			return make_hops(
 				v.to, want, mappings, new_number,
@@ -120,10 +135,20 @@ func main() {
 			}
 		} else {
 			if len(text) == 0 {
+				if len(buffer) == 0 {
+					continue
+				}
+
+				if DEBUG {
+					fmt.Println("Buffer: ")
+					for _, v := range buffer {
+						fmt.Println(v)
+					}
+				}
+
 				this_mapping := parse_mapping(buffer)
 
 				if DEBUG {
-					fmt.Println("Base: ", buffer)
 					fmt.Println("Output: ", this_mapping)
 				}
 
