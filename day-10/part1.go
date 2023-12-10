@@ -22,6 +22,7 @@ type Node struct {
 	symbol      string
 	render      string
 	distance    int
+	used        []bool
 	visited     bool
 }
 
@@ -79,6 +80,7 @@ func string_to_node(symbol string) Node {
 		symbol:      symbol,
 		render:      unicode_map[symbol],
 		distance:    -1,
+		used:        make([]bool, len(direction_map[symbol])),
 		visited:     false,
 	}
 }
@@ -131,106 +133,137 @@ func render_node_grid_distances(nodes [][]Node) {
 
 func find_connections(nodes [][]Node) {
 	// First, find the node with the S symbol.
-	start_x := 1
-	start_y := 1
+	beginning_x := 1
+	beginning_y := 1
 
 	for y, row := range nodes {
 		for x, node := range row {
 			if node.symbol == "S" {
-				start_x = x
-				start_y = y
+				beginning_x = x
+				beginning_y = y
 			}
 		}
 	}
 
-	current_symbol := "NONE"
-	nodes[start_y][start_x].distance = 0
+	for core_iteration := 0; core_iteration < 2; core_iteration++ {
+		start_x := beginning_x
+		start_y := beginning_y
 
-	iterations := 0
+		prev_x := beginning_x
+		prev_y := beginning_y
 
-	for current_symbol != "S" {
-		current_node := nodes[start_y][start_x]
-
-		for _, direction := range current_node.connections {
-			// fmt.Println("Checking direction: ", direction, "Have symbol: ", current_symbol)
-			// Does direction take us out of bounds?
-			new_x := start_x + direction[0]
-			new_y := start_y + direction[1]
-
-			if new_x < 0 || new_y < 0 || new_x >= len(nodes[0]) || new_y >= len(nodes) {
-				continue
+		// Reset the visits
+		for y, row := range nodes {
+			for x := range row {
+				nodes[y][x].visited = false
 			}
+		}
 
-			fmt.Println("Iteration: ", iterations)
+		current_symbol := "NONE"
+		nodes[start_y][start_x].visited = true
+		nodes[start_y][start_x].distance = 0
 
-			if iterations > 50000 {
-				fmt.Println("Too many iterations!")
-				current_symbol = "S"
-				break
-			} else {
-				iterations++
-			}
+		iterations := 0
 
-			// if iterations > 50 {
-			// 	fmt.Println("Too many iterations!")
-			// 	current_symbol = "S"
-			// 	break
-			// } else {
-			// 	iterations++
+		// fmt.Println("Starting node: ", nodes[start_y][start_x])
 
-			// 	fmt.Println("Currently at: ", start_x, start_y, "Going to: ", new_x, new_y, "Direction: ", direction, "Symbol: ", current_symbol)
-			// }
+		for current_symbol != "S" {
+			// fmt.Println("Current symbol: ", current_symbol)
+			current_node := nodes[start_y][start_x]
 
-			// Does the node we are going to have a symbol that accepts our connection?
-			allowed := false
+			for direction_id, direction := range current_node.connections {
+				// fmt.Println("Iteration: ", iterations)
 
-			for _, connection := range nodes[new_y][new_x].connections {
-				// fmt.Println("Checking connection: ", connection, "Against: ", []int{direction[0] * -1, direction[1] * -1})
-				if slices.Equal(connection, []int{direction[0] * -1, direction[1] * -1}) {
-					allowed = true
+				if iterations > 250000 {
+					fmt.Println("Too many iterations!")
+					current_symbol = "S"
+					break
+				} else {
+					iterations++
+				}
+
+				if current_node.used[direction_id] && current_node.symbol == "S" {
+					continue
+				}
+				// fmt.Println("Checking direction: ", direction, "Have symbol: ", current_symbol)
+				// Does direction take us out of bounds?
+				new_x := start_x + direction[0]
+				new_y := start_y + direction[1]
+
+				if new_x < 0 || new_y < 0 || new_x >= len(nodes[0]) || new_y >= len(nodes) {
+					// fmt.Println("Out of bounds")
+					continue
+				}
+
+				if new_x == prev_x && new_y == prev_y {
+					continue
+				}
+
+				// Does the node we are going to have a symbol that accepts our connection?
+				allowed := false
+
+				for _, connection := range nodes[new_y][new_x].connections {
+					// fmt.Println("Checking connection: ", connection, "Against: ", []int{direction[0] * -1, direction[1] * -1})
+					if slices.Equal(connection, []int{direction[0] * -1, direction[1] * -1}) {
+						// fmt.Println("Found connection!")
+						allowed = true
+						break
+					}
+				}
+
+				if !allowed {
+					continue
+				}
+
+				// Is this new node the source and I have a large distance?
+				if nodes[new_y][new_x].symbol == "S" && nodes[start_y][start_x].distance >= 1 {
+					current_symbol = "S"
 					break
 				}
-			}
 
-			if !allowed {
-				continue
-			}
+				// Is this new node unvisited?
+				if nodes[new_y][new_x].visited {
+					// fmt.Println("Already visited...")
+					continue
+				}
 
-			// Is this new node the source and I have a large distance?
-			if nodes[new_y][new_x].symbol == "S" && nodes[start_y][start_x].distance > 1 {
-				current_symbol = "S"
+				// symbols := make([][]string, 3)
+
+				// for row_id := 0; row_id < 3; row_id++ {
+				// 	symbols[row_id] = []string{" ", " ", " "}
+				// }
+
+				// symbols[1][1] = current_node.render
+				// symbols[1+direction[1]][1+direction[0]] = nodes[new_y][new_x].render
+
+				// fmt.Println("We think that the following symbols are connected: ")
+				// for _, row := range symbols {
+				// 	fmt.Println(row)
+				// }
+
+				// We used this connection!
+				nodes[start_y][start_x].used[direction_id] = true
+
+				// Update our current position.
+				prev_x = start_x
+				prev_y = start_y
+
+				start_x = new_x
+				start_y = new_y
+
+				if nodes[start_y][start_x].distance == -1 {
+					nodes[start_y][start_x].distance = current_node.distance + 1
+				} else {
+					// fmt.Println("Found a shorter distance!", nodes[start_y][start_x].distance, current_node.distance+1)
+					nodes[start_y][start_x].distance = min(current_node.distance+1, nodes[start_y][start_x].distance)
+				}
+
+				current_symbol = nodes[start_y][start_x].symbol
+				nodes[start_y][start_x].visited = true
+
+				// We found the connection! Onto the next symbol.
 				break
 			}
-
-			// Is this new node unvisited?
-			if nodes[new_y][new_x].distance > -1 {
-				continue
-			}
-
-			symbols := make([][]string, 3)
-
-			for row_id := 0; row_id < 3; row_id++ {
-				symbols[row_id] = []string{" ", " ", " "}
-			}
-
-			symbols[1][1] = current_node.render
-			symbols[1+direction[1]][1+direction[0]] = nodes[new_y][new_x].render
-
-			fmt.Println("We think that the following symbols are connected: ")
-			for _, row := range symbols {
-				fmt.Println(row)
-			}
-
-			// Update our current position.
-			start_x = new_x
-			start_y = new_y
-
-			nodes[start_y][start_x].distance = current_node.distance + 1
-
-			current_symbol = nodes[start_y][start_x].symbol
-
-			// We found the connection! Onto the next symbol.
-			break
 		}
 	}
 
@@ -261,4 +294,16 @@ func main() {
 		render_node_grid(nodes)
 		render_node_grid_distances(nodes)
 	}
+
+	max_distance := 0
+
+	for _, row := range nodes {
+		for _, node := range row {
+			if node.distance > max_distance {
+				max_distance = node.distance
+			}
+		}
+	}
+
+	fmt.Println("Max distance: ", max_distance)
 }
