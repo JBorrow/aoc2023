@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"slices"
 	"strings"
@@ -19,14 +18,15 @@ import (
 // S is the starting position of the animal; there is a pipe on this tile, but your sketch doesn't show what shape the pipe has.
 
 type Node struct {
-	connections     [][]int
-	connection_used []bool
-	symbol          string
-	render          string
-	distance        int
+	connections [][]int
+	symbol      string
+	render      string
+	distance    int
+	visited     bool
 }
 
 var color_red = "\033[31m"
+var color_none = "\033[0m"
 
 var unicode_map = map[string]string{
 	"|": "│",
@@ -49,19 +49,19 @@ var direction_map = map[string][][]int{
 		{1, 0},
 	},
 	"L": {
-		{0, 1},
+		{0, -1},
 		{1, 0},
 	},
 	"J": {
-		{0, 1},
+		{0, -1},
 		{-1, 0},
 	},
 	"7": {
-		{0, -1},
+		{0, 1},
 		{-1, 0},
 	},
 	"F": {
-		{0, -1},
+		{0, 1},
 		{1, 0},
 	},
 	".": {{}},
@@ -75,11 +75,11 @@ var direction_map = map[string][][]int{
 
 func string_to_node(symbol string) Node {
 	return Node{
-		connections:     direction_map[symbol],
-		symbol:          symbol,
-		render:          unicode_map[symbol],
-		distance:        -1,
-		connection_used: make([]bool, len(direction_map[symbol])),
+		connections: direction_map[symbol],
+		symbol:      symbol,
+		render:      unicode_map[symbol],
+		distance:    -1,
+		visited:     false,
 	}
 }
 
@@ -99,7 +99,7 @@ func render_node_grid(nodes [][]Node) {
 	for _, row := range nodes {
 		for _, node := range row {
 			if node.distance > -1 {
-				fmt.Print(color_red, node.render)
+				fmt.Print(color_red, node.render, color_none)
 			} else {
 				fmt.Print(node.render)
 			}
@@ -108,9 +108,31 @@ func render_node_grid(nodes [][]Node) {
 	}
 }
 
+func render_node_grid_distances(nodes [][]Node) {
+	for _, row := range nodes {
+		for _, node := range row {
+			if node.distance > -1 {
+				fmt.Print(color_red)
+				if node.distance > 9 {
+					fmt.Print("X")
+				} else {
+					fmt.Print(node.distance)
+				}
+				fmt.Print()
+			} else {
+				fmt.Print("N")
+			}
+
+			fmt.Print(color_none)
+		}
+		fmt.Println()
+	}
+}
+
 func find_connections(nodes [][]Node) {
 	// First, find the node with the S symbol.
-	var start_x, start_y int
+	start_x := 1
+	start_y := 1
 
 	for y, row := range nodes {
 		for x, node := range row {
@@ -129,48 +151,43 @@ func find_connections(nodes [][]Node) {
 	for current_symbol != "S" {
 		current_node := nodes[start_y][start_x]
 
-		// Look around our possible directions.
-		for direction_id, direction := range current_node.connections {
-			// Check if we have already used this connection.
-			if current_node.connection_used[direction_id] {
+		for _, direction := range current_node.connections {
+			// fmt.Println("Checking direction: ", direction, "Have symbol: ", current_symbol)
+			// Does direction take us out of bounds?
+			new_x := start_x + direction[0]
+			new_y := start_y + direction[1]
+
+			if new_x < 0 || new_y < 0 || new_x >= len(nodes[0]) || new_y >= len(nodes) {
 				continue
 			}
 
-			// Check if we can go in this direction.
-			if len(direction) == 0 {
-				log.Fatal("Could not find a direction to go in.")
-			}
+			fmt.Println("Iteration: ", iterations)
 
-			if iterations > 100 {
+			if iterations > 50000 {
+				fmt.Println("Too many iterations!")
 				current_symbol = "S"
 				break
 			} else {
 				iterations++
 			}
 
-			fmt.Println("Iteration: ", iterations, "Current position: ", start_x, " ", start_y, " Symbol: ", current_symbol, " Current distance: ", current_node.distance)
+			// if iterations > 50 {
+			// 	fmt.Println("Too many iterations!")
+			// 	current_symbol = "S"
+			// 	break
+			// } else {
+			// 	iterations++
 
-			// Calculate the new coordinates.
-			new_x := start_x + direction[0]
-			new_y := start_y + direction[1]
-
-			// Check if we are still in bounds.
-			if new_x < 0 || new_y < 0 || new_x >= len(nodes[0]) || new_y >= len(nodes) {
-				continue
-			}
-
-			potential_node := nodes[new_y][new_x]
-			required_direction := []int{direction[0] * -1, direction[1] * -1}
+			// 	fmt.Println("Currently at: ", start_x, start_y, "Going to: ", new_x, new_y, "Direction: ", direction, "Symbol: ", current_symbol)
+			// }
 
 			// Does the node we are going to have a symbol that accepts our connection?
-			// Is it unvisited?
 			allowed := false
-			connection_id := 10
 
-			for id, connection := range potential_node.connections {
-				if slices.Equal(connection, required_direction) {
+			for _, connection := range nodes[new_y][new_x].connections {
+				// fmt.Println("Checking connection: ", connection, "Against: ", []int{direction[0] * -1, direction[1] * -1})
+				if slices.Equal(connection, []int{direction[0] * -1, direction[1] * -1}) {
 					allowed = true
-					connection_id = id
 					break
 				}
 			}
@@ -179,19 +196,41 @@ func find_connections(nodes [][]Node) {
 				continue
 			}
 
-			// Mark my and their connection as used.
-			nodes[start_y][start_x].connection_used[direction_id] = true
-			nodes[new_y][new_x].connection_used[connection_id] = true
+			// Is this new node the source and I have a large distance?
+			if nodes[new_y][new_x].symbol == "S" && nodes[start_y][start_x].distance > 1 {
+				current_symbol = "S"
+				break
+			}
 
-			// We can move in this direction.
-			nodes[new_y][new_x].distance = current_node.distance + 1
+			// Is this new node unvisited?
+			if nodes[new_y][new_x].distance > -1 {
+				continue
+			}
+
+			symbols := make([][]string, 3)
+
+			for row_id := 0; row_id < 3; row_id++ {
+				symbols[row_id] = []string{" ", " ", " "}
+			}
+
+			symbols[1][1] = current_node.render
+			symbols[1+direction[1]][1+direction[0]] = nodes[new_y][new_x].render
+
+			fmt.Println("We think that the following symbols are connected: ")
+			for _, row := range symbols {
+				fmt.Println(row)
+			}
 
 			// Update our current position.
 			start_x = new_x
 			start_y = new_y
 
-			// Update our current symbol.
-			current_symbol = nodes[new_y][new_x].symbol
+			nodes[start_y][start_x].distance = current_node.distance + 1
+
+			current_symbol = nodes[start_y][start_x].symbol
+
+			// We found the connection! Onto the next symbol.
+			break
 		}
 	}
 
@@ -220,5 +259,6 @@ func main() {
 
 	if DEBUG {
 		render_node_grid(nodes)
+		render_node_grid_distances(nodes)
 	}
 }
