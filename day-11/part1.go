@@ -8,10 +8,15 @@ import (
 )
 
 type Galaxy struct {
-	x  int
-	y  int
-	id int
+	x       int
+	y       int
+	id      int
+	shift_x int
+	shift_y int
 }
+
+// This is 2 for part 1, 1000000 for part 2
+var SHIFT_FACTOR = 1000000
 
 func intAbs(x int) int {
 	if x < 0 {
@@ -30,7 +35,7 @@ func extract_galaxies(grid []string) []Galaxy {
 	for y, row := range grid {
 		for x, column := range row {
 			if string(column) == "#" {
-				galaxy := Galaxy{x, y, len(galaxies)}
+				galaxy := Galaxy{x, y, len(galaxies), 0, 0}
 				galaxies = append(galaxies, galaxy)
 			}
 		}
@@ -64,89 +69,92 @@ func all_pair_distances(galaxies []Galaxy) []int {
 	return distances
 }
 
-func insert_extra_columns(grid []string) []string {
-	current_column := 0
-	total_columns := len(grid[0])
+func insert_extra_space_x(galaxies []Galaxy) {
+	inject_space_at := make([]int, 0)
 
-	for current_column < total_columns {
-		// Loop through all the rows and find out if we have a
-		// column that is all empty (i.e. contains only ".")
+	maximal_x := 0
 
-		empty := true
+	for _, galaxy := range galaxies {
+		if galaxy.x > maximal_x {
+			maximal_x = galaxy.x
+		}
+	}
 
-		for _, row := range grid {
-			if string(row[current_column]) != "." {
-				empty = false
+	for x := 0; x <= maximal_x; x++ {
+		no_galaxies := true
+
+		for _, galaxy := range galaxies {
+			if galaxy.x == x {
+				no_galaxies = false
 				break
 			}
 		}
 
-		if !empty {
-			current_column++
+		if !no_galaxies {
 			continue
+		} else {
+			inject_space_at = append(inject_space_at, x)
 		}
-
-		// We have an empty column, so we need to insert a new column
-		// at the current position
-		for id, row := range grid {
-			left := row[:current_column]
-			right := row[current_column:]
-			new_row := left + "." + right
-
-			grid[id] = new_row
-		}
-
-		current_column += 2
-		total_columns += 1
 	}
 
-	return grid
+	for _, x := range inject_space_at {
+		for i, galaxy := range galaxies {
+			if galaxy.x > x {
+				galaxies[i].shift_x += 1
+			}
+		}
+	}
+
+	// Apply the shift
+	for i, galaxy := range galaxies {
+		galaxies[i].x += galaxy.shift_x * (SHIFT_FACTOR - 1)
+	}
+
+	return
 }
 
-func insert_extra_rows(grid []string) []string {
-	current_row := 0
-	row_length := len(grid[0])
-	total_rows := len(grid)
+func insert_extra_space_y(galaxies []Galaxy) {
+	inject_space_at := make([]int, 0)
 
-	for current_row < total_rows {
-		// Loop through all the rows and find out if we have a
-		// row that is all empty (i.e. contains only ".")
+	maximal_y := 0
 
-		empty := true
+	for _, galaxy := range galaxies {
+		if galaxy.x > maximal_y {
+			maximal_y = galaxy.y
+		}
+	}
 
-		for _, column := range grid[current_row] {
-			if string(column) != "." {
-				empty = false
+	for y := 0; y <= maximal_y; y++ {
+		no_galaxies := true
+
+		for _, galaxy := range galaxies {
+			if galaxy.y == y {
+				no_galaxies = false
 				break
 			}
 		}
 
-		if !empty {
-			current_row++
+		if !no_galaxies {
 			continue
+		} else {
+			inject_space_at = append(inject_space_at, y)
 		}
-
-		// We have an empty row, so we need to insert a new row
-		// at the current position
-		left := grid[:current_row+1]
-		right := grid[current_row:]
-		new_row := strings.Repeat(".", row_length)
-
-		grid = append(left, right...)
-		grid[current_row] = new_row
-
-		current_row += 2
-		total_rows += 1
 	}
 
-	return grid
-}
+	for _, y := range inject_space_at {
+		for i, galaxy := range galaxies {
+			if galaxy.y > y {
+				galaxies[i].shift_y += 1
+			}
+		}
+	}
 
-func insert_extra_space(grid []string) []string {
-	grid = insert_extra_columns(grid)
-	grid = insert_extra_rows(grid)
+	// Apply the shift
+	for i, galaxy := range galaxies {
+		galaxies[i].y += galaxy.shift_y * (SHIFT_FACTOR - 1)
+	}
 
-	return grid
+	return
 }
 
 func main() {
@@ -166,22 +174,6 @@ func main() {
 		grid = append(grid, text)
 	}
 
-	if DEBUG {
-		fmt.Println("Before adding:")
-		for _, row := range grid {
-			fmt.Println(row)
-		}
-	}
-
-	grid = insert_extra_space(grid)
-
-	if DEBUG {
-		fmt.Println("After adding:")
-		for _, row := range grid {
-			fmt.Println(row)
-		}
-	}
-
 	galaxies := extract_galaxies(grid)
 
 	if DEBUG {
@@ -190,6 +182,10 @@ func main() {
 			fmt.Println(galaxy)
 		}
 	}
+
+	// Shift the galaxies
+	insert_extra_space_x(galaxies)
+	insert_extra_space_y(galaxies)
 
 	distances := all_pair_distances(galaxies)
 
