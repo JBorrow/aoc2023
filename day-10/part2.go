@@ -81,9 +81,9 @@ var render_map = map[string][][]uint8{
 		{0, 0, 0},
 	},
 	"S": {
+		{0, 1, 0},
 		{1, 1, 1},
-		{1, 1, 1},
-		{1, 1, 1},
+		{0, 1, 0},
 	},
 }
 
@@ -487,10 +487,6 @@ func main() {
 
 	number_unvisited := label_unvisited(nodes)
 
-	if DEBUG {
-		render_node_grid(nodes)
-	}
-
 	fmt.Println("Number of unvisited nodes: ", number_unvisited)
 	fmt.Println("Warning - do not use this number - it does not watershed correctly into literal corner cases.")
 
@@ -499,12 +495,12 @@ func main() {
 
 	number_unvisited = extract_watershed_status(nodes, rendered_array)
 
-	if DEBUG {
-		fmt.Println("Full rendered grid: ")
-		for _, row := range rendered_array {
-			fmt.Println(row)
-		}
-	}
+	// if DEBUG {
+	// 	fmt.Println("Full rendered grid: ")
+	// 	for _, row := range rendered_array {
+	// 		fmt.Println(row)
+	// 	}
+	// }
 
 	if DEBUG {
 		render_node_grid(nodes)
