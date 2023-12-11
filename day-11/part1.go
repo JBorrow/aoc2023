@@ -25,7 +25,7 @@ func intAbs(x int) int {
 	return x
 }
 
-func minkowski_norm(a Galaxy, b Galaxy) int {
+func manhattan_norm(a Galaxy, b Galaxy) int {
 	return intAbs(a.x-b.x) + intAbs(a.y-b.y)
 }
 
@@ -62,7 +62,7 @@ func all_pair_distances(galaxies []Galaxy) []int {
 				continue
 			}
 
-			distances = append(distances, minkowski_norm(a, b))
+			distances = append(distances, manhattan_norm(a, b))
 		}
 	}
 
